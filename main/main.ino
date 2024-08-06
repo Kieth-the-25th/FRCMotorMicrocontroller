@@ -17,6 +17,8 @@
 
 #include <Servo.h>
 #include <Firmata.h>
+#include <Arduino.h>
+#include <avr/interrupt.h>
 
 Servo servos[MAX_SERVOS];
 byte servoPinMap[TOTAL_PINS];
@@ -24,27 +26,16 @@ byte servoCount = 0;
 
 void analogWriteCallback(byte pin, int value)
 {
-  Firmata.sendString(STRING_DATA, "writing to analog pin...");
-
   if (IS_PIN_DIGITAL(pin)) {
     servos[servoPinMap[pin]].write(value);
   }
   if (IS_PIN_PWM(pin)) {
     servos[servoPinMap[pin]].writeMicroseconds(value);
   }
-
-  char* message = new char[10];
-  message[10] = "\0";
-  String str = String(servos[servoPinMap[pin]].readMicroseconds());
-  str.getBytes(message, 9);
-
-  Firmata.sendString(STRING_DATA, message);
 }
 
 void digitalWriteCallback(byte port, int value)
 {
-  Firmata.sendString(STRING_DATA, "digitalWrite");
-
   byte pin, lastPin, pinValue, mask = 1, pinWriteMask = 0;
 
   if (port < TOTAL_PORTS) {
@@ -78,7 +69,6 @@ void digitalWriteCallback(byte port, int value)
   }
 }
 
-
 void sysexCallback(byte command, byte argc, byte* argv)
 {
   byte mode;
@@ -87,8 +77,6 @@ void sysexCallback(byte command, byte argc, byte* argv)
   byte data;
   int slaveRegister;
   unsigned int delayTime;
-
-  Firmata.sendString(STRING_DATA, "parsing message...");
 
   switch (command) {
   case EXTENDED_ANALOG:
@@ -157,7 +145,14 @@ void sysexCallback(byte command, byte argc, byte* argv)
     }
     Firmata.write(END_SYSEX);
     break;
-
+  case SERVO_CONFIG:
+    if (argc > 3) {
+      // these vars are here for clarity, they'll optimized away by the compiler
+      byte pin = argv[0];
+      byte active = argv[1];
+      int pulseWidth = argv[2] + (argv[3] << 7);
+    }
+    break;
   case SERIAL_MESSAGE:
 #ifdef FIRMATA_SERIAL_FEATURE
     serialFeature.handleSysex(command, argc, argv);
@@ -174,8 +169,8 @@ void systemResetCallback()
 
 void setup()
 {
-  byte pin;
-
+  byte pin; 
+  
   Firmata.setFirmwareVersion(FIRMATA_FIRMWARE_MAJOR_VERSION, FIRMATA_FIRMWARE_MINOR_VERSION);
   Firmata.attach(ANALOG_MESSAGE, analogWriteCallback);
   Firmata.attach(SYSTEM_RESET, systemResetCallback);

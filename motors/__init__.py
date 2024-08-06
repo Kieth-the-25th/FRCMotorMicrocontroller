@@ -39,7 +39,6 @@ class PWMSparkMax:
     def set(self, value: float):
         output = int(numpy.clip(self.SPARK_MAX_ZERO_PULSE + (self.SPARK_MAX_HALF_PULSE * value), self.SPARK_MAX_MIN_PULSE, self.SPARK_MAX_MAX_PULSE))
         array = bytearray([self.port, output & 127, (output >> 7) & 127, (output >> 14) & 127])
-        print(output)
         board.send_sysex(pyfirmata.EXTENDED_ANALOG, array)
 
     def get(self):
